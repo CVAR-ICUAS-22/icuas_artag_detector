@@ -1,0 +1,36 @@
+<!-- Launches: differential controller and trajectory generator -->
+<launch>
+	
+	<arg name = "namespace"					    default = "drone1"/>
+	<arg name = "uav_mass"					    default = "0.7"/>
+	
+    <arg name ="self_localization_pose_topic"   default = "self_localization/pose" />
+    <arg name ="self_localization_speed_topic"  default = "self_localization/speed" />
+	<arg name ="sensor_measurement_imu_topic"   default = "sensor_measurement/imu" />
+	<arg name ="motion_reference_traj_topic"    default = "motion_reference/trajectory" />
+
+	<arg name = "actuator_command_thrust_topic" default = "actuator_command/thrust" />
+	<arg name = "actuator_command_speed_topic"  default = "actuator_command/speed" />
+
+    <arg name = "motion_reference_waypoints_path_topic" default = "motion_reference/waypoints" />
+    <arg name = "debug_traj_generated_topic"            default = "debug/traj_generated" />
+	    
+	<group ns="$(arg namespace)">
+
+		<param name = "~namespace"  value = "$(arg namespace)"/>
+		<param name = "~uav_mass"  value = "$(arg uav_mass)"/>
+
+        <param name = "~self_localization_pose_topic"   value = "$(arg self_localization_pose_topic)"/>
+        <param name = "~self_localization_speed_topic"  value = "$(arg self_localization_speed_topic)"/>
+        <param name = "~sensor_measurement_imu_topic"   value = "$(arg sensor_measurement_imu_topic)"/>
+        <param name = "~motion_reference_traj_topic"    value = "$(arg motion_reference_traj_topic)"/>
+
+        <param name = "~actuator_command_thrust_topic"  value = "$(arg actuator_command_thrust_topic)"/>
+        <param name = "~actuator_command_speed_topic"   value = "$(arg actuator_command_speed_topic)"/>
+        <param name = "~debug_traj_generated_topic"     value = "$(arg debug_traj_generated_topic)"/>
+        <param name = "~motion_reference_waypoints_path_topic"  value ="$(arg motion_reference_waypoints_path_topic)"/>
+        
+        <node name="differential_flatness_controller" pkg="differential_flatness_controller" type="differential_flatness_controller_node" output="screen"/>
+        <node name="traj_gen_node" pkg="trajectory_generator" type="trajectory_generator_node" output="screen"/>
+	</group>
+</launch>

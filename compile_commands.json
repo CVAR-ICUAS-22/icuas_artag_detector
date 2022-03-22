@@ -1,0 +1,12 @@
+[
+{
+  "directory": "/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/build/linux-debug",
+  "command": "/usr/bin/c++  -DROSCONSOLE_BACKEND_LOG4CXX -DROS_BUILD_SHARED_LIBS=1 -DROS_PACKAGE_NAME=\\\"artag_detector\\\" -I/home/miguel/icuas_ws/devel/include -I/home/miguel/icuas_ws/src/uav_ros_simulation/ros_packages/mav_comm/mav_msgs/include -I/opt/ros/noetic/include -I/opt/ros/noetic/share/xmlrpcpp/cmake/../../../include/xmlrpcpp -I/usr/include/eigen3 -I/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/include -I/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/include/artag_detector -isystem /usr/include/opencv4   -std=c++11 -g   -std=gnu++17 -o CMakeFiles/artag_detector_node.dir/src/main_nodes.cpp.o -c /home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/src/main_nodes.cpp",
+  "file": "/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/src/main_nodes.cpp"
+},
+{
+  "directory": "/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/build/linux-debug",
+  "command": "/usr/bin/c++  -DROSCONSOLE_BACKEND_LOG4CXX -DROS_BUILD_SHARED_LIBS=1 -DROS_PACKAGE_NAME=\\\"artag_detector\\\" -I/home/miguel/icuas_ws/devel/include -I/home/miguel/icuas_ws/src/uav_ros_simulation/ros_packages/mav_comm/mav_msgs/include -I/opt/ros/noetic/include -I/opt/ros/noetic/share/xmlrpcpp/cmake/../../../include/xmlrpcpp -I/usr/include/eigen3 -I/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/include -I/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/include/artag_detector -isystem /usr/include/opencv4   -std=c++11 -g   -std=gnu++17 -o CMakeFiles/artag_detector_node.dir/src/artag_detector.cpp.o -c /home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/src/artag_detector.cpp",
+  "file": "/home/miguel/icuas_ws/src/cvar_icuas_project/repos/artag_detector/src/artag_detector.cpp"
+}
+]
