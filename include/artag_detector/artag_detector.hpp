@@ -186,7 +186,7 @@ class ArTagDetector {
     cv::Mat image_gray;
     cv::cvtColor(image, image_gray, cv::COLOR_BGR2GRAY);
     addPropellersMask(image_gray);
-    cv::imshow("image_gray", image_gray);
+    // cv::imshow("image_gray", image_gray);
 
     cv::threshold(image_gray, image_gray, 100, 255, cv::THRESH_BINARY_INV);
     cv::dilate(image_gray, image_gray, cv::Mat(), cv::Point(-1, -1), 2);
@@ -218,17 +218,14 @@ class ArTagDetector {
     cv::cvtColor(image_rect, image_rect, cv::COLOR_BGR2RGB);
     cv::rectangle(image_rect, bounding_rect, cv::Scalar(0, 255, 0), 2);
     cv::imshow("image_rect", image_rect);
-    return image_rect;
     cv::waitKey(1);
-    return image_gray;
+    return image_rect;
   }
 
   void run() {
     // if there is a rgb image show it
     if (!rgb_image_.empty()) {
-      cv::imshow("rgb_image", rgb_image_);
       processImage(rgb_image_);
-      cv::waitKey(1);
     }
   };
 
