@@ -32,7 +32,8 @@
 
 #include "trajectory_msgs/MultiDOFJointTrajectoryPoint.h"
 
-ArTagDetector::ArTagDetector(/* args */) : it_(nh_) {
+ArTagDetector::ArTagDetector(/* args */) : it_(nh_)
+{
   // traj_pub_ = nh_.advertise<TRAJECTORY_TOPIC_TYPE>(TRAJECTORY_TOPIC, 1);
   sub_odom_ = nh_.subscribe(ODOM_TOPIC, 1, &ArTagDetector::CallbackOdomTopic, this);
   // sub_speed_reference_ =
@@ -45,11 +46,14 @@ ArTagDetector::ArTagDetector(/* args */) : it_(nh_) {
 
   // Artag pose publisher
   pub_artag_pose_ = nh_.advertise<ARTAG_POSE_TOPIC_TYPE>(ARTAG_POSE_TOPIC, 1);
+
+  tf_listener_ = new tf2_ros::TransformListener(tf_buffer_);
 }
 
 /* --------------------------- CALLBACKS ---------------------------*/
 
-void ArTagDetector::CallbackOdomTopic(const ODOM_TOPIC_TYPE& odom_msg) {
+void ArTagDetector::CallbackOdomTopic(const ODOM_TOPIC_TYPE &odom_msg)
+{
   odom_pose_.header = odom_msg.header;
   odom_pose_.pose = odom_msg.pose.pose;
 }
@@ -58,11 +62,15 @@ void ArTagDetector::CallbackOdomTopic(const ODOM_TOPIC_TYPE& odom_msg) {
 //   const geometry_msgs::Twist& speed_msg = speed_reference_msg.twist;
 // }
 
-void ArTagDetector::CallbackRgbImageTopic(const sensor_msgs::ImageConstPtr& rgb_image_msg) {
+void ArTagDetector::CallbackRgbImageTopic(const sensor_msgs::ImageConstPtr &rgb_image_msg)
+{
   cv_bridge::CvImagePtr cv_ptr;
-  try {
+  try
+  {
     cv_ptr = cv_bridge::toCvCopy(rgb_image_msg, sensor_msgs::image_encodings::BGR8);
-  } catch (cv_bridge::Exception& e) {
+  }
+  catch (cv_bridge::Exception &e)
+  {
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
   }
@@ -72,8 +80,8 @@ void ArTagDetector::CallbackRgbImageTopic(const sensor_msgs::ImageConstPtr& rgb_
   // cv::waitKey(3);
 }
 
-void ArTagDetector::CallbackCameraInfoTopic(const sensor_msgs::CameraInfoConstPtr& camera_info_msg) {
+void ArTagDetector::CallbackCameraInfoTopic(const sensor_msgs::CameraInfoConstPtr &camera_info_msg)
+{
   camera_info_ = *camera_info_msg;
   has_camera_info_ = true;
 }
-

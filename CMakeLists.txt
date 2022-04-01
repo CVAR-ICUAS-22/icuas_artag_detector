@@ -10,7 +10,9 @@ set(PROJECT_DEPENDENCIES
   std_msgs
   sensor_msgs
   mav_msgs
+  tf2
   tf2_ros
+  tf2_geometry_msgs
   geometry_msgs
   cv_bridge
   image_transport

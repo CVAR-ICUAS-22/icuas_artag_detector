@@ -33,8 +33,13 @@
 
 //  ros
 #include <sys/wait.h>
-#include <tf/transform_datatypes.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+// #include <tf2_ros/transform_broadcaster.h>
+// #include <tf2_ros/static_transform_broadcaster.h>
+// #include <tf2_ros/buffer.h>
+// #include <tf2_ros/transform_listener.h>
 
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
@@ -77,13 +82,16 @@
 #define RGB_CAMERA_INFO_TOPIC_TYPE sensor_msgs::CameraInfo
 #define ARTAG_POSE_TOPIC "artag_pose"
 #define ARTAG_POSE_TOPIC_TYPE geometry_msgs::PoseStamped
+#define CAMERA_FRAME "camera"
+#define REF_FRAME "world"
 
 #define DEBUG 1
 #define SATURATE_YAW_ERROR 1
 #define SPEED_GAIN 1
 
-class ArTagDetector {
-  private:
+class ArTagDetector
+{
+private:
   ros::NodeHandle nh_;
 
   ros::Subscriber sub_odom_;
@@ -102,11 +110,15 @@ class ArTagDetector {
   cv::Mat rgb_image_;
   sensor_msgs::CameraInfo camera_info_;
 
-  public:
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener *tf_listener_;
+
+public:
   ArTagDetector();
   ~ArTagDetector() { cv::destroyAllWindows(); };
 
-  void addPropellersMask(cv::Mat& image) {
+  void addPropellersMask(cv::Mat &image)
+  {
     int top_row = image.rows / 2 - image.rows / 3;
     int bottom_row = image.rows / 2 - image.rows / 10;
     int left_col = image.cols / 2 - image.cols / 3;
@@ -118,7 +130,8 @@ class ArTagDetector {
   };
 
   geometry_msgs::PoseStamped convertRelativePoseToAbsolutePose(
-      geometry_msgs::PoseStamped relative_pose, geometry_msgs::PoseStamped odom_pose) {
+      geometry_msgs::PoseStamped relative_pose, geometry_msgs::PoseStamped odom_pose)
+  {
     // relative pose is in camera frame, odom pose is in world frame
     geometry_msgs::PoseStamped absolute_pose;
     absolute_pose.header = relative_pose.header;
@@ -128,8 +141,9 @@ class ArTagDetector {
     return absolute_pose;
   }
 
-  geometry_msgs::PoseStamped getArTagPositionFromPnP(cv::Rect& ar_tag_rect,
-                                          sensor_msgs::CameraInfo& camera_info) {
+  void getArTagPositionFromPnP(cv::Rect &ar_tag_rect,
+                               sensor_msgs::CameraInfo &camera_info)
+  {
     // get the ar tag corners from the rectangle
     std::vector<cv::Point2f> ar_tag_corners;
     ar_tag_corners.push_back(cv::Point2f(ar_tag_rect.x, ar_tag_rect.y));
@@ -137,13 +151,13 @@ class ArTagDetector {
     ar_tag_corners.push_back(
         cv::Point2f(ar_tag_rect.x + ar_tag_rect.width, ar_tag_rect.y + ar_tag_rect.height));
     ar_tag_corners.push_back(cv::Point2f(ar_tag_rect.x, ar_tag_rect.y + ar_tag_rect.height));
-    
+
     const double square_size = 0.2f;
     std::vector<cv::Point3f> ar_obj_points;
-    ar_obj_points.push_back(cv::Point3f(-square_size/2, square_size/2, 0));
-    ar_obj_points.push_back(cv::Point3f(square_size/2, square_size/2, 0));
-    ar_obj_points.push_back(cv::Point3f(square_size/2, -square_size/2, 0));
-    ar_obj_points.push_back(cv::Point3f(-square_size/2, -square_size/2, 0));
+    ar_obj_points.push_back(cv::Point3f(-square_size / 2, square_size / 2, 0));
+    ar_obj_points.push_back(cv::Point3f(square_size / 2, square_size / 2, 0));
+    ar_obj_points.push_back(cv::Point3f(square_size / 2, -square_size / 2, 0));
+    ar_obj_points.push_back(cv::Point3f(-square_size / 2, -square_size / 2, 0));
 
     // get the camera matrix
     cv::Mat camera_matrix =
@@ -154,35 +168,76 @@ class ArTagDetector {
     cv::Mat dist_coeffs = (cv::Mat_<double>(5, 1) << camera_info.D.at(0), camera_info.D.at(1),
                            camera_info.D.at(2), camera_info.D.at(3), camera_info.D.at(4));
     // get the rotation and translation vectors
-    cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64FC1);          // output rotation vector
+    cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64FC1); // output rotation vector
     cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64FC1);
     // solve pnp using P3P
     cv::solvePnP(ar_obj_points, ar_tag_corners, camera_matrix, dist_coeffs, rvec, tvec);
 
-    // convert translation_vector into PoseStamped
-    geometry_msgs::PoseStamped pose_stamped;
-    std::string frame_id =  nh_.getNamespace().substr(1) + "/camera";
-    pose_stamped.header.frame_id = frame_id;
-    pose_stamped.header.stamp = ros::Time::now();
-    pose_stamped.pose.position.x = tvec.at<double>(0);
-    pose_stamped.pose.position.y = tvec.at<double>(1);
-    pose_stamped.pose.position.z = tvec.at<double>(2);
-    pose_stamped.pose.orientation.x = 0;
-    pose_stamped.pose.orientation.y = 0;
-    pose_stamped.pose.orientation.z = 0;
-    pose_stamped.pose.orientation.w = 1;
+    static geometry_msgs::PoseStamped last_artag_pose_sent;
+    static geometry_msgs::PoseStamped last_artag_pose;
+    geometry_msgs::PoseStamped artag_relative_pose;
+    geometry_msgs::PoseStamped artag_global_pose;
+    geometry_msgs::PoseStamped new_artag_pose;
 
-    pub_artag_pose_.publish(pose_stamped);
-    // obtain global position
-    // auto absolute_pose = convertRelativePoseToAbsolutePose(pose_stamped, odom_pose_);
-    // std::cout << "absolute_pose = [ " << absolute_pose.pose.position.x << ", "
-    //           << absolute_pose.pose.position.y << ", " << absolute_pose.pose.position.z << " ]"
-    //           << std::endl;
+    try
+    {
+      artag_relative_pose.header.frame_id = REF_FRAME;
+      artag_relative_pose.header.stamp = ros::Time::now();
+      artag_relative_pose.pose.position.x = tvec.at<double>(0);
+      artag_relative_pose.pose.position.y = tvec.at<double>(1);
+      artag_relative_pose.pose.position.z = tvec.at<double>(2);
+      artag_relative_pose.pose.orientation.x = rvec.at<double>(0);
+      artag_relative_pose.pose.orientation.y = rvec.at<double>(1);
+      artag_relative_pose.pose.orientation.z = rvec.at<double>(2);
+      artag_relative_pose.pose.orientation.w = rvec.at<double>(3);
 
-    return pose_stamped;
+      auto pose_transform = tf_buffer_.lookupTransform(REF_FRAME, addNamespace(CAMERA_FRAME), ros::Time(0));
+      tf2::doTransform(artag_relative_pose, artag_global_pose, pose_transform);
+
+      applyDetectionConstrains(artag_global_pose);
+
+      if (artag_global_pose.pose.position.x > 12.5)
+        artag_global_pose.pose.position.x = 12.5;
+      if (artag_global_pose.pose.position.y > 7.5)
+        artag_global_pose.pose.position.y = 7.5;
+      if (artag_global_pose.pose.position.y < -7.5)
+        artag_global_pose.pose.position.y = -7.5;
+      if (artag_global_pose.pose.position.z < 0.5)
+        artag_global_pose.pose.position.z = 0.5;
+
+      float alpha = 0.5;
+      // moving average
+      new_artag_pose.pose.position.x = alpha * artag_global_pose.pose.position.x +
+                                       (1 - alpha) * last_artag_pose.pose.position.x;
+      new_artag_pose.pose.position.y = alpha * artag_global_pose.pose.position.y +
+                                       (1 - alpha) * last_artag_pose.pose.position.y;
+      new_artag_pose.pose.position.z = alpha * artag_global_pose.pose.position.z +
+                                       (1 - alpha) * last_artag_pose.pose.position.z;
+
+      float distance = sqrt(pow((new_artag_pose.pose.position.x - last_artag_pose_sent.pose.position.x), 2) +
+                            pow((new_artag_pose.pose.position.y - last_artag_pose_sent.pose.position.y), 2) +
+                            pow((new_artag_pose.pose.position.z - last_artag_pose_sent.pose.position.z), 2));
+
+      if (distance > 0.1)
+      {
+        // ROS_WARN("Distance between ARtag estimation: %f", distance);
+        ROS_INFO("ARTag position: %f %f %f", new_artag_pose.pose.position.x,
+                 new_artag_pose.pose.position.y, new_artag_pose.pose.position.z);
+        pub_artag_pose_.publish(new_artag_pose);
+        last_artag_pose_sent = new_artag_pose;
+      }
+
+      last_artag_pose = new_artag_pose;
+    }
+    catch (tf2::TransformException &ex)
+    {
+      ROS_WARN("Transform fail. Failure %s", ex.what());
+      ros::Duration(1.0).sleep();
+    }
   };
 
-  cv::Mat processImage(const cv::Mat& image) {
+  cv::Mat processImage(const cv::Mat &image)
+  {
     cv::Mat image_gray;
     cv::cvtColor(image, image_gray, cv::COLOR_BGR2GRAY);
     addPropellersMask(image_gray);
@@ -202,15 +257,19 @@ class ArTagDetector {
 
     // draw biggest contour as a rectangle
     cv::Rect bounding_rect;
-    if (contours.size() > 0) {
+    if (contours.size() > 0)
+    {
       std::vector<cv::Point> biggest_contour = contours[0];
-      for (int i = 1; i < contours.size(); i++) {
-        if (contours[i].size() > biggest_contour.size()) {
+      for (int i = 1; i < contours.size(); i++)
+      {
+        if (contours[i].size() > biggest_contour.size())
+        {
           biggest_contour = contours[i];
         }
       }
       bounding_rect = cv::boundingRect(biggest_contour);
-      if (has_camera_info_) {
+      if (has_camera_info_)
+      {
         getArTagPositionFromPnP(bounding_rect, camera_info_);
       }
     }
@@ -222,17 +281,51 @@ class ArTagDetector {
     return image_rect;
   }
 
-  void run() {
+  void run()
+  {
     // if there is a rgb image show it
-    if (!rgb_image_.empty()) {
+    if (!rgb_image_.empty())
+    {
       processImage(rgb_image_);
     }
   };
 
-  private:
-  void CallbackOdomTopic(const nav_msgs::Odometry& odom_msg);
+private:
+  void CallbackOdomTopic(const nav_msgs::Odometry &odom_msg);
   // void CallbackSpeedRefTopic(const geometry_msgs::TwistStamped& twist_msg);
-  void CallbackRgbImageTopic(const sensor_msgs::ImageConstPtr& rgb_image_msg);
-  void CallbackCameraInfoTopic(const sensor_msgs::CameraInfoConstPtr& camera_info_msg);
+  void CallbackRgbImageTopic(const sensor_msgs::ImageConstPtr &rgb_image_msg);
+  void CallbackCameraInfoTopic(const sensor_msgs::CameraInfoConstPtr &camera_info_msg);
+
+  void applyDetectionConstrains(geometry_msgs::PoseStamped &pose)
+  {
+    if (pose.pose.position.x > 12.5)
+      pose.pose.position.x = 12.5;
+    if (pose.pose.position.y > 7.5)
+      pose.pose.position.y = 7.5;
+    if (pose.pose.position.y < -7.5)
+      pose.pose.position.y = -7.5;
+    if (pose.pose.position.z < 0.5)
+      pose.pose.position.z = 0.5;
+    // if (abs(pose.pose.position.y) < 7.5)
+    //   pose.pose.position.z = 1.5;
+  }
+
+  std::string addNamespace(const std::string name)
+  {
+    std::string ns = nh_.getNamespace();
+    if (ns.empty())
+    {
+      return name;
+    }
+    else
+    {
+      if (ns[0] == '/')
+      {
+        ns = ns.substr(1);
+      }
+      return ns + "/" + name;
+    }
+  }
 };
+
 #endif
